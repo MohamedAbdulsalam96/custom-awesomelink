@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include custom_awesomelink *.css
+recursive-include custom_awesomelink *.csv
+recursive-include custom_awesomelink *.html
+recursive-include custom_awesomelink *.ico
+recursive-include custom_awesomelink *.js
+recursive-include custom_awesomelink *.json
+recursive-include custom_awesomelink *.md
+recursive-include custom_awesomelink *.png
+recursive-include custom_awesomelink *.py
+recursive-include custom_awesomelink *.svg
+recursive-include custom_awesomelink *.txt
+recursive-exclude custom_awesomelink *.pyc
