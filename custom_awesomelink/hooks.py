@@ -11,6 +11,8 @@ app_color = "grey"
 app_email = "poranut@spacecode.co.th"
 app_license = "MIT"
 
+app_include_js = "/assets/custom_awesomelink/js/awesomelink.js"
+
 # Includes in <head>
 # ------------------
 
