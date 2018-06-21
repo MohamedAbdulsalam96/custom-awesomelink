@@ -3,17 +3,14 @@
 /** Custom input field for Frappe Framework using Awesomplete. */
 class AwesomeLink {
     /** Constructor!!!. 
-     * @param {object} frm 
-     * - frm object from Frappe Framework
-     * @param {text} field 
-     * - field name in doctype
-     * - field='withholdee',
-     * @param {text} label 
-     * - label name for new field
-     * - label='ผู้ถูกหักภาษี',
-     * @param {dict} choice 
-     * - dictionary of choice 'lable' and 'value'
-     * - choice=[
+     * @param {object} args 
+     * - frm {object}: frm object from Frappe Framework
+     * - field {text}: field name in doctype
+     *  field='withholdee',
+     * - label {text}: label name for new field
+     *  label='ผู้ถูกหักภาษี',
+     * - choice {dict}: dictionary of choice 'lable' and 'value'
+     *  choice=[
      *     {
      *         'lable': '0226672009956 - บจก.ฐาปนา16',
      *         'value': 'บจก.ฐาปนา16',
@@ -26,17 +23,25 @@ class AwesomeLink {
      *     },
      * ],
     */
-    constructor(frm, field, label, choice) {
-        this.frm=frm;
-        this.field = field;
-        this.label = label;
-        this.choice = choice;
+    constructor(args) {
+        if (args.frm) {
+            this.frm = args.frm;
+        }
+        if (args.field) {
+            this.field = args.field;
+        }
+        this.doctype = this.frm.fields_dict[this.field].df.options;
+        this.label = args.label || this.frm.fields_dict[this.field]._label;
+        this.labelRe = args.labelRe || '';
+        this.valueRe = args.valueRe || '';
+        this.choice = args.choice || [];
 
         this.getInputHtml();
         this.insertInput();
         this.attatchInput();
-        this.updateOriFieldWhenSelected();
+        this.evtOriSel();
         this.autoSel();
+        this.tryGetChoice();
     }
 
     /**
@@ -73,7 +78,7 @@ class AwesomeLink {
     insertInput() {
         this.oriField = $('[data-fieldname='+this.field+']').parent('form');
         $(this.html).insertBefore(this.oriField);
-        this.cusField = $('[data-fieldname="search_'+field+'"]')[0];
+        this.cusField = $('[data-fieldname="search_'+this.field+'"]')[0];
     }
 
     /** Attatch Awesomplete to custom input field */
@@ -92,7 +97,7 @@ class AwesomeLink {
     */
     addEventLis(type, func) {
         this.cusField.addEventListener(
-            type, func
+            type, func.bind(this)
         );
     }
 
@@ -101,7 +106,7 @@ class AwesomeLink {
      * - name of DocType
      * - label='13c5b2163f',
     */
-   updateOriFieldWhenSelected() {
+   evtOriSel() {
         this.addEventLis(
             'awesomplete-selectcomplete',
             function(e) {
@@ -143,5 +148,107 @@ class AwesomeLink {
             this.aweField.replace(this.choice[0]);
             this.updateOriField(this.choice[0].id);
         }
+    }
+
+    /** Update choice 
+     * @param {dict} choice 
+     * - dictionary of choice 'lable' and 'value'
+     * - choice=[
+     *     {
+     *         'lable': '0226672009956 - บจก.ฐาปนา16',
+     *         'value': 'บจก.ฐาปนา16',
+     *         'id': '13c5b2163f',
+     *     },
+     *     {
+     *         'lable': '0115561008845 - บจก.สเปซโค้ด',
+     *         'value': 'บจก.สเปซโค้ด',
+     *         'id': 'f4c9899dfa',
+     *     },
+     * ],
+    */
+    udChoice(choice) {
+        this.choice = choice;
+        this.aweField._list = choice;
+        this.autoSel();
+    }
+
+    /** Get doctype title_field
+     * @param {text} doctype 
+     * - name of doctype
+     * @return {text} - return label
+    */
+    getLabel(doctype) {
+        return new Promise((resolve, reject) => {
+            frappe.call({
+                method: 'custom_awesomelink.custom_awesomelink.' +
+                'control.data.get_label',
+                args: {
+                    'doctype': doctype,
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        resolve(r.message);
+                    } else {
+                        reject('labelNotFound');
+                    }
+                },
+                async: true,
+            });
+        });
+    }
+
+    /** Get awesomplete choice
+     * @param {text} doctype - name of doctype
+     * @param {text} labelRe
+     * - labelRe = '{tax_id}-{org_type}{org_name}'
+     * @param {text} valueRe
+     * - valueRe = '{tax_id}-{org_type}{org_name}'
+     * @return {bool} false if not success
+    */
+    async getChoice(doctype, labelRe, valueRe) {
+        if (!labelRe) {
+            labelRe = await this.getLabel(doctype);
+            if (!labelRe) {
+                return false;
+            }
+        } else {
+            labelRe = 'none';
+        }
+        if (labelRe != 'none') {
+            this.choice = await frappe.call({
+                method: 'custom_awesomelink.custom_awesomelink.' +
+                'control.data.get_choice',
+                args: {
+                    'doctype': doctype,
+                    'label_re': labelRe,
+                    'value_re': valueRe,
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        return r.message;
+                    }
+                },
+                async: true,
+            });
+            this.choice = this.choice.message;
+            this.udChoice(this.choice);
+        }
+    }
+
+    /** Try to get choice if error nothing return */
+    async tryGetChoice() {
+        let labelRe;
+        if (!this.choice.length) {
+            if (!this.labelRe) {
+                labelRe = await this.getLabel(this.doctype);
+            }
+            if (labelRe != 'none') {
+                this.choice = this.getChoice(
+                    this.doctype,
+                    this.labelRe,
+                    this.valueRe
+                );
+            }
+        };
     }
 }
