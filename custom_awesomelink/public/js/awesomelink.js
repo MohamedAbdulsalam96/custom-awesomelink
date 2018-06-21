@@ -30,7 +30,6 @@ class AwesomeLink {
         if (args.field) {
             this.field = args.field;
         }
-        this.doctype = this.frm.fields_dict[this.field].df.options;
         this.label = args.label || this.frm.fields_dict[this.field]._label;
         this.labelRe = args.labelRe || '';
         this.valueRe = args.valueRe || '';
@@ -137,9 +136,14 @@ class AwesomeLink {
      * - label='13c5b2163f',
     */
     updateOriField(id) {
-        this.id = id;
-        this.frm.doc[this.field] = this.id;
-        refresh_field(this.field);
+        if (id) {
+            this.id = id;
+            this.frm.doc[this.field] = this.id;
+            refresh_field(this.field);
+        } else {
+            this.frm.doc[this.field] = '';
+            refresh_field(this.field);
+        }
     }
 
     /** Autoselect value if there is only one choice */
@@ -197,58 +201,84 @@ class AwesomeLink {
         });
     }
 
+    /** Clear fields */
+    clear() {
+        this.cusField.value = '';
+        this.updateOriField('');
+    }
+
     /** Get awesomplete choice
      * @param {text} doctype - name of doctype
      * @param {text} labelRe
      * - labelRe = '{tax_id}-{org_type}{org_name}'
      * @param {text} valueRe
      * - valueRe = '{tax_id}-{org_type}{org_name}'
+     * @param {dict} filters
      * @return {bool} false if not success
     */
-    async getChoice(doctype, labelRe, valueRe) {
-        if (!labelRe) {
-            labelRe = await this.getLabel(doctype);
-            if (!labelRe) {
-                return false;
-            }
+    async getChoice(doctype, labelRe, valueRe, filters) {
+        let getLabel;
+        this.filters = filters;
+        if (labelRe) {
+            this.labelRe = labelRe;
         } else {
-            labelRe = 'none';
+            getLabel = await this.getLabel(doctype);
         }
-        if (labelRe != 'none') {
-            this.choice = await frappe.call({
-                method: 'custom_awesomelink.custom_awesomelink.' +
-                'control.data.get_choice',
-                args: {
-                    'doctype': doctype,
-                    'label_re': labelRe,
-                    'value_re': valueRe,
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        return r.message;
-                    }
-                },
-                async: true,
-            });
-            this.choice = this.choice.message;
-            this.udChoice(this.choice);
+        if (valueRe) {
+            this.valueRe = valueRe;
         }
+        return new Promise((resolve, reject) => {
+            if (!labelRe) {
+                this.labelRe = getLabel;
+                if (!this.labelRe) {
+                    reject('label not found');
+                }
+                if (!valueRe) {
+                    this.valueRe = this.labelRe;
+                }
+            }
+
+            if (this.labelRe != 'none') {
+                frappe.call({
+                    method: 'custom_awesomelink.custom_awesomelink.' +
+                    'control.data.get_choice',
+                    args: {
+                        'doctype': doctype,
+                        'label_re': this.labelRe,
+                        'value_re': this.valueRe,
+                        'filters': this.filters,
+                    },
+                    callback: function(r) {
+                        if (r.message) {
+                            resolve(r.message);
+                        } else {
+                            reject('could not get choice');
+                        }
+                    },
+                    async: true,
+                });
+            }
+        });
     }
 
     /** Try to get choice if error nothing return */
     async tryGetChoice() {
-        let labelRe;
-        if (!this.choice.length) {
-            if (!this.labelRe) {
-                labelRe = await this.getLabel(this.doctype);
-            }
-            if (labelRe != 'none') {
-                this.choice = this.getChoice(
-                    this.doctype,
-                    this.labelRe,
-                    this.valueRe
-                );
-            }
-        };
+        this.FieldType = this.frm.fields_dict[this.field].df.fieldtype;
+        if (this.FieldType != 'Dynamic Link') {
+            this.doctype = this.frm.fields_dict[this.field].df.options;
+            if (!this.choice.length) {
+                if (!this.labelRe) {
+                    this.labelRe = await this.getLabel(this.doctype);
+                }
+                if (this.labelRe != 'none') {
+                    this.choice = await this.getChoice(
+                        this.doctype,
+                        this.labelRe,
+                        this.valueRe
+                    );
+                    this.udChoice(this.choice);
+                }
+            };
+        }
     }
 }

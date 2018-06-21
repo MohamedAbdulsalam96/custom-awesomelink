@@ -7,7 +7,7 @@ import re
 
 
 @frappe.whitelist()
-def get_choice(doctype, label_re, value_re=''):
+def get_choice(doctype, label_re, value_re='', filters={}):
     """Get Awesomplete choice.
 
     Args:
@@ -50,7 +50,7 @@ def get_choice(doctype, label_re, value_re=''):
     var_list = frappe.get_list(
         doctype=doctype,
         fields=fields,
-        filters={}
+        filters=filters
     )
 
     new_list = []
