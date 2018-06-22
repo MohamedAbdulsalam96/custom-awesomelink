@@ -34,6 +34,7 @@ class AwesomeLink {
         this.labelRe = args.labelRe || '';
         this.valueRe = args.valueRe || '';
         this.choice = args.choice || [];
+        this.setUpChoice = args.setUpChoice || 'yes';
 
         this.getInputHtml();
         this.insertInput();
@@ -41,6 +42,7 @@ class AwesomeLink {
         this.evtOriSel();
         this.autoSel();
         this.tryGetChoice();
+        this.evtClear();
     }
 
     /**
@@ -280,5 +282,32 @@ class AwesomeLink {
                 }
             };
         }
+    }
+
+    /** Filtered choice 
+     * @param {dict} filters
+    */
+    async filteredChoice(filters) {
+        this.filters = filters;
+        this.choice = this.choice.filter((d) => {
+            d.parent === this.filters;
+        });
+        this.choice = this.choice.message;
+        this.udChoice(this.choice);
+    }
+
+    /** Clear ori filed when awesomelink is clear */
+    evtClear() {
+        $('[data-fieldname="search_'+this.field+'"]').change((e) => {
+            if (e.target.value === '') {
+                this.updateOriField('');
+            }
+        });
+        this.addEventLis(
+            'awesomplete-select',
+            function(e) {
+                this.cusField.blur();
+            }.bind(this)
+        );
     }
 }
