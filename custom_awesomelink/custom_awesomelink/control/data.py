@@ -99,6 +99,6 @@ def get_label(doctype):
         if meta.description:
             label = meta.description
         else:
-            return 'none'
+            return ''
 
     return label

@@ -2,54 +2,64 @@
 
 /** Custom input field for Frappe Framework using Awesomplete. */
 class AwesomeLink {
-    /** Constructor!!!. 
-     * @param {object} args 
+    /** Create new awesomplete input box above old link field
+     * @param {dict} args 
+     * Mandatory
      * - frm {object}: frm object from Frappe Framework
-     * - field {text}: field name in doctype
-     *  field='withholdee',
-     * - label {text}: label name for new field
-     *  label='ผู้ถูกหักภาษี',
-     * - choice {dict}: dictionary of choice 'lable' and 'value'
-     *  choice=[
-     *     {
-     *         'lable': '0226672009956 - บจก.ฐาปนา16',
-     *         'value': 'บจก.ฐาปนา16',
-     *         'id': '13c5b2163f',
-     *     },
-     *     {
-     *         'lable': '0115561008845 - บจก.สเปซโค้ด',
-     *         'value': 'บจก.สเปซโค้ด',
-     *         'id': 'f4c9899dfa',
-     *     },
-     * ],
+     * - field {text}: subject field name in form
+     * 
+     * Optional
+     * - label {text}: label name for subject field
+     * - labelRe {text}: choice label template will use to create choice
+     * - valueRe {text}: choice value template will use to create choice
+     * - choice {dict}: dictionary of choice 'lable', 'value', 'id'
+     * - setUpChoice {bool}
     */
     constructor(args) {
-        if (args.frm) {
+        // mandatory args
+        if (ud(args.frm)) {
+            throw new Error('frm not found');
+        } else {
             this.frm = args.frm;
         }
-        if (args.field) {
+        if (ud(args.field)) {
+            throw new Error('field not found');
+        } else {
             this.field = args.field;
         }
-        this.label = args.label || this.frm.fields_dict[this.field]._label;
-        this.labelRe = args.labelRe || '';
-        this.valueRe = args.valueRe || '';
-        this.choice = args.choice || [];
-        this.setUpChoice = args.setUpChoice || 'yes';
 
+        // optional args
+        this.label = args.label || this.frm.fields_dict[this.field]._label;
+        if (!ud(args.labelRe)) {
+            this.labelRe = args.labelRe;
+        }
+        if (!ud(args.valueRe)) {
+            this.valueRe = args.valueRe;
+        }
+        if (!ud(args.choice)) {
+            this.choice = args.choice;
+        }
+        if (!ud(args.setUpChoice)) {
+            this.setUpChoice = args.setUpChoice;
+        } else {
+            this.setUpChoice = true;
+        }
+
+        // Add Input
         this.getInputHtml();
         this.insertInput();
         this.attatchInput();
-        this.evtOriSel();
-        this.autoSel();
+        // Event Listener
+        this.evtSelect();
+        // Choice
         this.tryGetChoice();
-        this.evtClear();
     }
 
     /**
      * @return {text} will use to insert input field
     */
     getInputHtml() {
-        this.html = `
+        this.InputHtml = `
         <form>
             <div class="frappe-control input-max-width">
                 <div class="form-group">
@@ -72,24 +82,63 @@ class AwesomeLink {
             </div>
         </form>
         `;
-        return this.html;
+        return this.InputHtml;
     }
 
     /** Insert custom input field after original link input field */
     insertInput() {
-        this.oriField = $('[data-fieldname='+this.field+']').parent('form');
-        $(this.html).insertBefore(this.oriField);
-        this.cusField = $('[data-fieldname="search_'+this.field+'"]')[0];
+        this.oriField = $('[data-fieldname='+this.field+']');
+        this.oriFieldPar = this.oriField.parent('form');
+        $(this.InputHtml).insertBefore(this.oriFieldPar);
+        this.jqField = $('[data-fieldname="search_'+this.field+'"]');
+        this.cusField = this.jqField[0];
     }
 
     /** Attatch Awesomplete to custom input field */
     attatchInput() {
         this.aweField = new Awesomplete(this.cusField, {
             minChars: 1,
-            maxItems: 20,
-            list: this.choice,
+            maxItems: 100,
+            list: this.choice || [],
             autoFirst: true,
         });
+    }
+
+    /** Change ori field when awesomlink change */
+    evtSelect() {
+        // Change value
+        this.addEventLis(
+            'awesomplete-selectcomplete',
+            (e) => {
+                let id = this.searchField(e.text.value);
+                this.updateOriField(id);
+            }
+        );
+        // Clear
+        this.jqField.change((e) => {
+            if (e.target.value === '') {
+                this.updateOriField('');
+            }
+        });
+        this.addEventLis(
+            'awesomplete-select',
+            function(e) {
+                this.cusField.blur();
+            }.bind(this)
+        );
+    }
+
+    /** Try to get choice if error nothing return */
+    async tryGetChoice() {
+        if (ud(this.choice)) {
+            let choiceInfo = await this.getChoiceInfo();
+            if (this.setUpChoice === true) {
+                this.choice = await getAweChoice(choiceInfo);
+                if (!ud(this.choice)) {
+                    this.udChoice(this.choice);
+                }
+            }
+        }
     }
 
     /** Add event listener to custom input field 
@@ -98,22 +147,7 @@ class AwesomeLink {
     */
     addEventLis(type, func) {
         this.cusField.addEventListener(
-            type, func.bind(this)
-        );
-    }
-
-    /** update original field with id  
-     * @param {text} id 
-     * - name of DocType
-     * - label='13c5b2163f',
-    */
-   evtOriSel() {
-        this.addEventLis(
-            'awesomplete-selectcomplete',
-            function(e) {
-                let id = this.searchField(e.text.value);
-                this.updateOriField(id);
-            }.bind(this)
+            type, func, false
         );
     }
 
@@ -123,8 +157,8 @@ class AwesomeLink {
      * @return {text} id
     */
     searchField(value) {
-        let id = '';
-        $.each(this.choice, function(i, v) {
+        let id;
+        $.each(this.choice, (i, v) => {
             if (v.value===value) {
                 id = v.id;
             }
@@ -134,10 +168,20 @@ class AwesomeLink {
 
     /** update original field with id  
      * @param {text} id 
-     * - name of DocType
-     * - label='13c5b2163f',
+     * - id of DocType
     */
     updateOriField(id) {
+        let e = new CustomEvent(
+            'fieldUpdate',
+            {detail:
+                {
+                    'id': id,
+                    'frm': this.frm,
+                    'choice': this.choice,
+                },
+            }
+        );
+        this.cusField.dispatchEvent(e);
         if (id) {
             this.id = id;
             this.frm.doc[this.field] = this.id;
@@ -195,7 +239,7 @@ class AwesomeLink {
                     if (r.message) {
                         resolve(r.message);
                     } else {
-                        reject('labelNotFound');
+                        reject();
                     }
                 },
                 async: true,
@@ -209,105 +253,74 @@ class AwesomeLink {
         this.updateOriField('');
     }
 
-    /** Get awesomplete choice
-     * @param {text} doctype - name of doctype
-     * @param {text} labelRe
-     * - labelRe = '{tax_id}-{org_type}{org_name}'
-     * @param {text} valueRe
-     * - valueRe = '{tax_id}-{org_type}{org_name}'
-     * @param {dict} filters
-     * @return {bool} false if not success
+    /** Get choice information 
+     * @return {dict}
     */
-    async getChoice(doctype, labelRe, valueRe, filters) {
-        let getLabel;
-        this.filters = filters;
-        if (labelRe) {
-            this.labelRe = labelRe;
-        } else {
-            getLabel = await this.getLabel(doctype);
-        }
-        if (valueRe) {
-            this.valueRe = valueRe;
-        }
-        return new Promise((resolve, reject) => {
-            if (!labelRe) {
-                this.labelRe = getLabel;
-                if (!this.labelRe) {
-                    reject('label not found');
-                }
-                if (!valueRe) {
-                    this.valueRe = this.labelRe;
-                }
+    async getChoiceInfo() {
+        this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
+        if (this.fieldType != 'Dynamic Link') {
+            this.doctype = this.frm.fields_dict[this.field].df.options;
+            if (ud(this.labelRe)) {
+                this.labelRe = await this.getLabel(this.doctype);
             }
+        }
 
-            if (this.labelRe != 'none') {
-                frappe.call({
-                    method: 'custom_awesomelink.custom_awesomelink.' +
-                    'control.data.get_choice',
-                    args: {
-                        'doctype': doctype,
-                        'label_re': this.labelRe,
-                        'value_re': this.valueRe,
-                        'filters': this.filters,
-                    },
-                    callback: function(r) {
-                        if (r.message) {
-                            resolve(r.message);
-                        } else {
-                            reject('could not get choice');
-                        }
-                    },
-                    async: true,
-                });
+        let choiceInfo = {};
+        if (this.doctype) {
+            choiceInfo.doctype = this.doctype;
+        }
+        if (this.label_re) {
+            choiceInfo.label_re = this.labelRe;
+        }
+        if (this.value_re) {
+            choiceInfo.value_re = this.valueRe;
+        }
+        if (this.filtered) {
+            choiceInfo.filtered = this.filtered;
+        }
+
+        return new Promise((resolve, reject) => {
+            if (this.doctype && this.labelRe) {
+                resolve(choiceInfo);
+            } else {
+                reject();
             }
         });
-    }
-
-    /** Try to get choice if error nothing return */
-    async tryGetChoice() {
-        this.FieldType = this.frm.fields_dict[this.field].df.fieldtype;
-        if (this.FieldType != 'Dynamic Link') {
-            this.doctype = this.frm.fields_dict[this.field].df.options;
-            if (!this.choice.length) {
-                if (!this.labelRe) {
-                    this.labelRe = await this.getLabel(this.doctype);
-                }
-                if (this.labelRe != 'none') {
-                    this.choice = await this.getChoice(
-                        this.doctype,
-                        this.labelRe,
-                        this.valueRe
-                    );
-                    this.udChoice(this.choice);
-                }
-            };
-        }
     }
 
     /** Filtered choice 
      * @param {dict} filters
     */
     async filteredChoice(filters) {
-        this.filters = filters;
-        this.choice = this.choice.filter((d) => {
-            d.parent === this.filters;
-        });
-        this.choice = this.choice.message;
-        this.udChoice(this.choice);
     }
+}
 
-    /** Clear ori filed when awesomelink is clear */
-    evtClear() {
-        $('[data-fieldname="search_'+this.field+'"]').change((e) => {
-            if (e.target.value === '') {
-                this.updateOriField('');
-            }
+/** Check if var is undeclared or undefined 
+ * @param {any} v
+ * @return {bool}
+*/
+function ud(v) {
+    return typeof v === 'undefined';
+}
+
+/** Get awesomplete choice
+ * @param {dict} args
+ * @return {bool} false if not success
+*/
+function getAweChoice(args) {
+    return new Promise((resolve, reject) => {
+        frappe.call({
+            method: 'custom_awesomelink.custom_awesomelink.' +
+            'control.data.get_choice',
+            args: args,
+            callback: function(r) {
+                if (r.message) {
+                    resolve(r.message);
+                } else {
+                    reject('Error: could not get choice');
+                }
+            },
+            async: true,
         });
-        this.addEventLis(
-            'awesomplete-select',
-            function(e) {
-                this.cusField.blur();
-            }.bind(this)
-        );
-    }
+    });
 }
