@@ -45,12 +45,18 @@ class AwesomeLink {
             this.setUpChoice = true;
         }
 
+        this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
+        this.reqd = this.frm.fields_dict[this.field].df.reqd;
+        this.hasValue = 0;
+
         // Add Input
         this.getInputHtml();
         this.insertInput();
         this.attatchInput();
         // Event Listener
         this.evtSelect();
+        // Toggle has error
+        this.toggleHasError();
         // Choice
         this.tryGetChoice();
     }
@@ -131,11 +137,19 @@ class AwesomeLink {
     /** Try to get choice if error nothing return */
     async tryGetChoice() {
         if (ud(this.choice)) {
-            let choiceInfo = await this.getChoiceInfo();
+            let choiceInfo = await this.getChoiceInfo()
+                .catch((e) => {
+                    console.log(e);
+                });
             if (this.setUpChoice === true) {
-                this.choice = await getAweChoice(choiceInfo);
-                if (!ud(this.choice)) {
-                    this.udChoice(this.choice);
+                if (!ud(choiceInfo)) {
+                    this.choice = await getAweChoice(choiceInfo)
+                        .catch((e) => {
+                            console.log(e);
+                        });
+                    if (!ud(this.choice)) {
+                        this.udChoice(this.choice);
+                    }
                 }
             }
         }
@@ -186,9 +200,13 @@ class AwesomeLink {
             this.id = id;
             this.frm.doc[this.field] = this.id;
             refresh_field(this.field);
+            this.hasValue = 1;
+            this.toggleHasError();
         } else {
             this.frm.doc[this.field] = '';
             refresh_field(this.field);
+            this.hasValue = 0;
+            this.toggleHasError();
         }
     }
 
@@ -239,7 +257,7 @@ class AwesomeLink {
                     if (r.message) {
                         resolve(r.message);
                     } else {
-                        reject();
+                        reject('Error: no label');
                     }
                 },
                 async: true,
@@ -257,7 +275,6 @@ class AwesomeLink {
      * @return {dict}
     */
     async getChoiceInfo() {
-        this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
         if (this.fieldType != 'Dynamic Link') {
             this.doctype = this.frm.fields_dict[this.field].df.options;
             if (ud(this.labelRe)) {
@@ -283,15 +300,22 @@ class AwesomeLink {
             if (this.doctype && this.labelRe) {
                 resolve(choiceInfo);
             } else {
-                reject();
+                reject('Error: no choice info');
             }
         });
     }
 
-    /** Filtered choice 
-     * @param {dict} filters
-    */
-    async filteredChoice(filters) {
+    /** Toggle has error class */
+    toggleHasError() {
+        if (this.reqd === 1) {
+            if (this.hasValue === 1) {
+                this.jqField.parents('.frappe-control')
+                    .removeClass('has-error');
+            } else {
+                this.jqField.parents('.frappe-control')
+                    .addClass('has-error');
+            }
+        }
     }
 }
 
