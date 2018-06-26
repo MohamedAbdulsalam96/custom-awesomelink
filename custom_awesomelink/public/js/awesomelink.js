@@ -58,8 +58,9 @@ class AwesomeLink {
         this.attatchInput();
         // Event Listener
         this.evtSelect();
+        this.evtFrm();
         // Toggle has error
-        this.toggleHasError();
+        this.toggleDisplay();
         // Choice
         this.tryGetChoice();
         this.updateAweValue();
@@ -75,19 +76,31 @@ class AwesomeLink {
                 <div class="form-group">
                     <div class="clearfix">
                         <label class="control-label" 
-                        style="padding-right: 0px;">`
+                            style="padding-right: 0px;">`
                             + this.label +
                         `</label>
                     </div>
-                    <div class="control-input-wrapper">
+                    <div class="control-input-wrapper"
+                        style="display: none;">
                         <div class="control-input">
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control" 
                                 maxlength="140" placeholder="" data-fieldname="`
-                                + 'search_' + this.field + `"
+                                + 'awe_' + this.field + `"
                                 >
                         </div>
                     </div>
+                    <div class="control-input-wrapper"
+                        style="display: none;">
+                    <div class="control-value like-disabled-input bold">
+                        <a class="grey" 
+                            data-fieldname="`
+                            + 'awe_' + this.field + `"
+                            >`
+                            + this.field +
+                        `</a>
+                    </div>
+                </div>
                 </div>
             </div>
         </form>
@@ -100,8 +113,9 @@ class AwesomeLink {
         this.oriField = $('[data-fieldname='+this.field+']');
         this.oriFieldPar = this.oriField.parent('form');
         $(this.InputHtml).insertBefore(this.oriFieldPar);
-        this.jqField = $('[data-fieldname="search_'+this.field+'"]');
+        this.jqField = $('input[data-fieldname="awe_'+this.field+'"]');
         this.cusField = this.jqField[0];
+        this.oriFieldPar.hide();
     }
 
     /** Attatch Awesomplete to custom input field */
@@ -111,6 +125,18 @@ class AwesomeLink {
             maxItems: 100,
             list: this.choice || [],
             autoFirst: true,
+        });
+    }
+
+    /** Add event listener to frm event */
+    evtFrm() {
+        $(document).on('form-refresh', () => {
+            this.cusField.value = '';
+            // Toggle has error
+            this.toggleDisplay();
+            // Choice
+            this.tryGetChoice();
+            this.updateAweValue();
         });
     }
 
@@ -160,12 +186,11 @@ class AwesomeLink {
     }
 
     /** Set field value if frm is save */
-    updateAweValue() {
+    async updateAweValue() {
         if (this.frm.doc.docstatus === 1) {
-            console.log('this is update awe value');
             let fieldValue = this.frm.doc[this.field];
             let filters = {'name': fieldValue};
-            this.choiceFunc(filters);
+            await this.choiceFunc(filters);
         }
     }
 
@@ -215,12 +240,12 @@ class AwesomeLink {
             this.frm.doc[this.field] = this.id;
             refresh_field(this.field);
             this.hasValue = 1;
-            this.toggleHasError();
+            this.toggleDisplay();
         } else {
             this.frm.doc[this.field] = '';
             refresh_field(this.field);
             this.hasValue = 0;
-            this.toggleHasError();
+            this.toggleDisplay();
         }
     }
 
@@ -229,6 +254,8 @@ class AwesomeLink {
         if (this.choice.length===1) {
             this.aweField.replace(this.choice[0]);
             this.updateOriField(this.choice[0].id);
+            $('a[data-fieldname="awe_'+this.field+'"]')
+                .text(this.choice[0].value);
         }
     }
 
@@ -319,8 +346,8 @@ class AwesomeLink {
         });
     }
 
-    /** Toggle has error class */
-    toggleHasError() {
+    /** Toggle display */
+    toggleDisplay() {
         if (this.reqd === 1) {
             this.jqField.addClass('bold');
             if (this.hasValue === 1) {
@@ -331,6 +358,12 @@ class AwesomeLink {
                     .addClass('has-error');
             }
         }
+        $('input[data-fieldname="awe_'+this.field+'"]')
+            .parents('div.control-input-wrapper')
+            .toggle(this.frm.doc.docstatus !== 1);
+        $('a[data-fieldname="awe_'+this.field+'"]')
+            .parents('div.control-input-wrapper')
+            .toggle(this.frm.doc.docstatus === 1);
     }
 }
 
