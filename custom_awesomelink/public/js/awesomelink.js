@@ -30,6 +30,9 @@ class AwesomeLink {
 
         // optional args
         this.label = args.label || this.frm.fields_dict[this.field]._label;
+        if (!ud(args.choiceFunc)) {
+            this.choiceFunc = args.choiceFunc;
+        }
         if (!ud(args.labelRe)) {
             this.labelRe = args.labelRe;
         }
@@ -59,6 +62,7 @@ class AwesomeLink {
         this.toggleHasError();
         // Choice
         this.tryGetChoice();
+        this.updateAweValue();
     }
 
     /**
@@ -77,8 +81,8 @@ class AwesomeLink {
                     </div>
                     <div class="control-input-wrapper">
                         <div class="control-input">
-                            <input type="text" autocomplete="off" id="myinput"
-                                class="input-with-feedback form-control bold" 
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control" 
                                 maxlength="140" placeholder="" data-fieldname="`
                                 + 'search_' + this.field + `"
                                 >
@@ -128,9 +132,9 @@ class AwesomeLink {
         });
         this.addEventLis(
             'awesomplete-select',
-            function(e) {
+            (e) => {
                 this.cusField.blur();
-            }.bind(this)
+            }
         );
     }
 
@@ -152,6 +156,16 @@ class AwesomeLink {
                     }
                 }
             }
+        }
+    }
+
+    /** Set field value if frm is save */
+    updateAweValue() {
+        if (this.frm.doc.docstatus === 1) {
+            console.log('this is update awe value');
+            let fieldValue = this.frm.doc[this.field];
+            let filters = {'name': fieldValue};
+            this.choiceFunc(filters);
         }
     }
 
@@ -308,6 +322,7 @@ class AwesomeLink {
     /** Toggle has error class */
     toggleHasError() {
         if (this.reqd === 1) {
+            this.jqField.addClass('bold');
             if (this.hasValue === 1) {
                 this.jqField.parents('.frappe-control')
                     .removeClass('has-error');
