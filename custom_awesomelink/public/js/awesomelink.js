@@ -16,6 +16,46 @@ class AwesomeLink {
      * - setUpChoice {bool}
     */
     constructor(args) {
+        this.getFieldInfo(args);
+        // Add Input
+        this.getInputHtml();
+        this.insertInput();
+        this.attatchInput();
+        // Event Listener
+        this.evtSelect();
+        this.evtFrm();
+
+        this.setUpAwe();
+    }
+
+    /** Set of function use to setup choice field and update value */
+    async setUpAwe() {
+        // onload event
+        this.showInput();
+        // Choice
+        this.getChoiceInfo().catch((e) => {});
+        if (this.frm.doc.docstatus !== 0) {
+            this.updateAweValue();
+        } else {
+            if (ud(this.frm.doc.__islocal)) {
+                let fieldValue = this.frm.doc[this.field];
+                await this.choiceFunc({});
+                for (let i = 0; i < this.choice.length; i++) {
+                    if (this.choice[i].id === fieldValue) {
+                        this.aweField.replace(this.choice[i]);
+                        this.hasValue = 1;
+                    }
+                }
+            }
+        }
+        // Toggle Display
+        this.toggleDisplay();
+    }
+
+    /** Get Filed Info 
+     * @param {dict} args
+    */
+    getFieldInfo(args) {
         // mandatory args
         if (ud(args.frm)) {
             throw new Error('frm not found');
@@ -48,22 +88,10 @@ class AwesomeLink {
             this.setUpChoice = true;
         }
 
+        // additional info
         this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
         this.reqd = this.frm.fields_dict[this.field].df.reqd;
         this.hasValue = 0;
-
-        // Add Input
-        this.getInputHtml();
-        this.insertInput();
-        this.attatchInput();
-        // Event Listener
-        this.evtSelect();
-        this.evtFrm();
-        // Toggle has error
-        this.toggleDisplay();
-        // Choice
-        this.tryGetChoice();
-        this.updateAweValue();
     }
 
     /**
@@ -115,7 +143,7 @@ class AwesomeLink {
         $(this.InputHtml).insertBefore(this.oriFieldPar);
         this.jqField = $('input[data-fieldname="awe_'+this.field+'"]');
         this.cusField = this.jqField[0];
-        this.oriFieldPar.hide();
+        // this.oriFieldPar.hide();
     }
 
     /** Attatch Awesomplete to custom input field */
@@ -132,11 +160,7 @@ class AwesomeLink {
     evtFrm() {
         $(document).on('form-refresh', () => {
             this.cusField.value = '';
-            // Toggle has error
-            this.toggleDisplay();
-            // Choice
-            this.tryGetChoice();
-            this.updateAweValue();
+            this.setUpAwe();
         });
     }
 
@@ -167,16 +191,10 @@ class AwesomeLink {
     /** Try to get choice if error nothing return */
     async tryGetChoice() {
         if (ud(this.choice)) {
-            let choiceInfo = await this.getChoiceInfo()
-                .catch((e) => {
-                    console.log(e);
-                });
             if (this.setUpChoice === true) {
-                if (!ud(choiceInfo)) {
+                if (this.doctype && this.labelRe) {
                     this.choice = await getAweChoice(choiceInfo)
-                        .catch((e) => {
-                            console.log(e);
-                        });
+                        .catch((e) => {});
                     if (!ud(this.choice)) {
                         this.udChoice(this.choice);
                     }
@@ -187,12 +205,10 @@ class AwesomeLink {
 
     /** Set field value if frm is save */
     async updateAweValue() {
-        if (this.frm.doc.docstatus === 1) {
             let fieldValue = this.frm.doc[this.field];
             let filters = {'name': fieldValue};
             await this.choiceFunc(filters);
         }
-    }
 
     /** Add event listener to custom input field 
      * @param {text} type - event type
@@ -234,7 +250,6 @@ class AwesomeLink {
                 },
             }
         );
-        this.cusField.dispatchEvent(e);
         if (id) {
             this.id = id;
             this.frm.doc[this.field] = this.id;
@@ -247,6 +262,7 @@ class AwesomeLink {
             this.hasValue = 0;
             this.toggleDisplay();
         }
+        this.cusField.dispatchEvent(e);
     }
 
     /** Autoselect value if there is only one choice */
@@ -346,6 +362,16 @@ class AwesomeLink {
         });
     }
 
+    /** Toggle input field */
+    showInput() {
+        $('input[data-fieldname="awe_'+this.field+'"]')
+            .parents('div.control-input-wrapper')
+            .toggle(this.frm.doc.docstatus === 0);
+        $('a[data-fieldname="awe_'+this.field+'"]')
+            .parents('div.control-input-wrapper')
+            .toggle(this.frm.doc.docstatus !== 0);
+    }
+
     /** Toggle display */
     toggleDisplay() {
         if (this.reqd === 1) {
@@ -358,12 +384,6 @@ class AwesomeLink {
                     .addClass('has-error');
             }
         }
-        $('input[data-fieldname="awe_'+this.field+'"]')
-            .parents('div.control-input-wrapper')
-            .toggle(this.frm.doc.docstatus !== 1);
-        $('a[data-fieldname="awe_'+this.field+'"]')
-            .parents('div.control-input-wrapper')
-            .toggle(this.frm.doc.docstatus === 1);
     }
 }
 
