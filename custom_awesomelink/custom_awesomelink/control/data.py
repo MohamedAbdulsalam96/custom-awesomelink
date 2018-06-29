@@ -2,6 +2,7 @@
 # Copyright (c) 2018, SpaceCode Co., Ltd. and contributors
 # For license information, please see license.txt
 
+import ast
 import frappe
 import re
 
@@ -47,10 +48,14 @@ def get_choice(doctype, label_re, value_re='', filters={}):
     fields = re.findall(r'\{(.+?)\}', label_re + value_re)
     fields.append('name')
     fields = list(set(fields))
+
+    filters = ast.literal_eval(filters)
+    _filters = merge_two_dicts(filters, {'docstatus': 1})
+
     var_list = frappe.get_list(
         doctype=doctype,
         fields=fields,
-        filters=filters
+        filters=_filters
     )
 
     new_list = []
@@ -72,7 +77,8 @@ def utf8dict(dict):
     Workaround for > UnicodeEncodeError: 'ascii' codec
     can't encode characters in position 0-2: ordinal not in range(128)
     """
-    dict = {k: v.encode('utf-8') for k, v in dict.iteritems()}
+    if dict:
+        dict = {k: v.encode('utf-8') for k, v in dict.iteritems()}
     return dict
 
 
@@ -102,3 +108,10 @@ def get_label(doctype):
             return ''
 
     return label
+
+
+def merge_two_dicts(x, y):
+    """Merge two dictionary."""
+    z = x.copy()
+    z.update(y)
+    return z
