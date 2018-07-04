@@ -24,7 +24,7 @@ class AwesomeLink {
         // Event Listener
         this.evtSelect();
         this.evtFrm();
-
+        // setup awesomplete
         this.setUpAwe();
     }
 
@@ -50,6 +50,20 @@ class AwesomeLink {
         }
         // Toggle Display
         this.toggleDisplay();
+        // Update awesomelink if value is exist
+        setTimeout(() => {
+            let val = $('[data-fieldname='+this.field+'] a.grey').text();
+            if (val !== '') {
+                if (!ud(this.choice)) {
+                    for (let i = 0; i < this.choice.length; i++) {
+                        if (this.choice[i].id === val) {
+                            this.aweField.replace(this.choice[i]);
+                            this.hasValue = 1;
+                        }
+                    }
+                }
+            }
+        }, 1);
     }
 
     /** Get Filed Info 
@@ -143,7 +157,7 @@ class AwesomeLink {
         $(this.InputHtml).insertBefore(this.oriFieldPar);
         this.jqField = $('input[data-fieldname="awe_'+this.field+'"]');
         this.cusField = this.jqField[0];
-        // this.oriFieldPar.hide();
+        // this.oriFieldPar.hide();     // ################## REMOVE THIS!!
     }
 
     /** Attatch Awesomplete to custom input field */
@@ -245,7 +259,6 @@ class AwesomeLink {
             {detail:
                 {
                     'id': id,
-                    'frm': this.frm,
                     'choice': this.choice,
                 },
             }
