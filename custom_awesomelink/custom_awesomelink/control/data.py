@@ -66,7 +66,8 @@ def get_choice(doctype, label_re, value_re='', filters={}):
             'value': value_re.format(**i),
             'id': i['name'],
             }
-        new_list.append(dict)
+        i.update(dict)
+        new_list.append(i)
 
     return new_list
 
