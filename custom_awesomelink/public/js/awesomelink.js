@@ -101,6 +101,9 @@ class AwesomeLink {
         } else {
             this.setUpChoice = true;
         }
+        if (!ud(args.fillValue)) {
+            this.fillValue = args.fillValue;
+        }
 
         // additional info
         this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
@@ -267,11 +270,28 @@ class AwesomeLink {
             this.id = id;
             this.frm.doc[this.field] = this.id;
             refresh_field(this.field);
+            if (!ud(this.fillValue)) {
+                for (let [key, value] of Object.entries(this.fillValue)) {
+                    for (let i=0; i<this.choice.length; i++) {
+                        if (this.choice[i].id === this.id) {
+                            this.frm.doc[key] = this.choice[i][value];
+                            refresh_field(key);
+                        }
+                    }
+                }
+            }
             this.hasValue = 1;
             this.toggleDisplay();
         } else {
             this.frm.doc[this.field] = '';
             refresh_field(this.field);
+            if (!ud(this.fillValue)) {
+                for (let [key, value] of Object.entries(this.fillValue)) {
+                    this.frm.doc[key] = '';
+                    refresh_field(key);
+                }
+            }
+
             this.hasValue = 0;
             this.toggleDisplay();
         }
