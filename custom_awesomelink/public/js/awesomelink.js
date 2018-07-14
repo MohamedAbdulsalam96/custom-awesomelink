@@ -35,9 +35,11 @@ class AwesomeLink {
         // Choice
         this.getChoiceInfo().catch((e) => {});
         if (this.frm.doc.docstatus !== 0) {
-            this.updateAweValue();
+            // submitted, comfirmed form
         } else {
+            // new form
             if (ud(this.frm.doc.__islocal)) {
+                // draft form
                 let fieldValue = this.frm.doc[this.field];
                 await this.choiceFunc({});
                 for (let i = 0; i < this.choice.length; i++) {
@@ -50,7 +52,8 @@ class AwesomeLink {
         }
         // Toggle Display
         this.toggleDisplay();
-        // Update awesomelink if value is exist
+        this.showHideField(this.frm.doc.docstatus === 0);
+        // Update awesomelink if value is exist > amend form
         setTimeout(() => {
             let val = $('[data-fieldname='+this.field+'] a.grey').text();
             if (val !== '') {
@@ -104,6 +107,9 @@ class AwesomeLink {
         if (!ud(args.fillValue)) {
             this.fillValue = args.fillValue;
         }
+        if (!ud(args.readOnlyField)) {
+            this.readOnlyField = args.readOnlyField;
+        }
 
         // additional info
         this.fieldType = this.frm.fields_dict[this.field].df.fieldtype;
@@ -116,7 +122,7 @@ class AwesomeLink {
     */
     getInputHtml() {
         this.InputHtml = `
-        <form>
+        <form data-fieldname="awe_`+this.field+`">
             <div class="frappe-control input-max-width">
                 <div class="form-group">
                     <div class="clearfix">
@@ -160,7 +166,7 @@ class AwesomeLink {
         $(this.InputHtml).insertBefore(this.oriFieldPar);
         this.jqField = $('input[data-fieldname="awe_'+this.field+'"]');
         this.cusField = this.jqField[0];
-        // this.oriFieldPar.hide();     // ################## REMOVE THIS!!
+        this.oriField.hide();
     }
 
     /** Attatch Awesomplete to custom input field */
@@ -221,11 +227,13 @@ class AwesomeLink {
     }
 
     /** Set field value if frm is save */
-    async updateAweValue() {
-            let fieldValue = this.frm.doc[this.field];
-            let filters = {'name': fieldValue};
-            await this.choiceFunc(filters);
+    showHideField(hide) {
+        $('form[data-fieldname="awe_'+this.field+'"]').toggle(hide);
+        if (!ud(this.readOnlyField)) {
+            let readOnlyField = $('[data-fieldname='+this.readOnlyField+']').parents('div.form-group');
+            readOnlyField.toggle(!hide);
         }
+    }
 
     /** Add event listener to custom input field 
      * @param {text} type - event type
